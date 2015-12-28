@@ -1,0 +1,18 @@
+{
+  "uuid": "d6db2dac-b41b-4432-bc56-6d35f37e89b5",
+  "shortName": "about-math",
+  "longName": "about-math",
+  "companyName": "MakeAwesomeHappen",
+  "versionLabel": "1.0",
+  "sdkVersion": "3",
+  "targetPlatforms": ["aplite", "basalt", "chalk"],
+  "watchapp": {
+    "watchface": false
+  },
+  "appKeys": {
+    "dummy": 0
+  },
+  "resources": {
+    "media": []
+  }
+}
