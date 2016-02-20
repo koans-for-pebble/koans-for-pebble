@@ -6,17 +6,27 @@ class Koans:
             # However, more tests can be defined here.
             # For example, emu-(aplite|basalt|chalk).
             # Basically, the first test is building
-        self.koans['about-types'] = {'tests': [{'name': 'emu-aplite',
-                                                'assertions': ['about-types-ints',
-                                                               'about-types-chars',
-                                                               'about-types-int-arrays',
-                                                               'about-types-strings']}]}
-        self.koans['about-math'] = {'tests': [{'name': 'emu-aplite',
-                                               'assertions': ['about-math-addition',
-                                                              'about-math-multiplication',
-                                                              'about-math-division',
-                                                              'about-math-increment',
-                                                              'about-math-decrement']}]}
+        self.koans['about-types'] = {'tests': [
+        {
+            'name': 'emu-aplite',
+            'assertions': [
+                'about-types-ints',
+                'about-types-chars',
+                'about-types-int-arrays',
+                'about-types-strings'
+            ]
+        }]}
+        self.koans['about-math'] = {'tests': [
+        {
+            'name': 'emu-aplite',
+            'assertions': [
+                'about-math-addition',
+                'about-math-multiplication',
+                'about-math-division',
+                'about-math-increment',
+                'about-math-decrement'
+            ]
+        }]}
 
     def getKoanDir(self, koan):
         import os
