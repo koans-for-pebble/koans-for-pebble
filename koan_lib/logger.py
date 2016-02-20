@@ -27,7 +27,7 @@ class Logger:
         global _logging_verbosity
         if importance == 'dbg' and _logging_verbosity < 1:
             return  # Don't print debug logs if the code verbosity is low.
-        if not importance in self.colors.keys():
+        if importance not in self.colors.keys():
             # If the color doesn't exist
             print('error: bad importance %s' % [importance])
         try:
