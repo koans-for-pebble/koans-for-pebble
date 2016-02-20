@@ -30,6 +30,23 @@ class Koans:
             }
         ]}
 
+    def addPristineKoans(self):
+        import os
+        import shutil
+        assert os.path.isdir(self.getPristineKoanDir(''))
+        if not os.path.isdir(self.getKoanDir('')):
+            os.mkdir(self.getKoanDir(''))
+        for koan in self.koans.keys():
+            koan_path = self.getKoanDir(koan)
+            if not os.path.isdir(koan_path):  # Don't overwrite koans.
+                pristine_path = self.getPristineKoanDir(koan)
+                assert os.path.isdir(pristine_path)
+                shutil.copytree(pristine_path, koan_path)
+
+    def getPristineKoanDir(self, koan):
+        import os
+        return os.path.join('koans_pristine', koan)
+
     def getKoanDir(self, koan):
         import os
         return os.path.join('koans', koan)

@@ -9,8 +9,8 @@
 # copies of the Software, and to permit persons to whom the Software is
 # furnished to do so, subject to the following conditions:
 #
-# The above copyright notice and this permission notice shall be included in all
-# copies or substantial portions of the Software.
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
 #
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
@@ -25,39 +25,50 @@ from __future__ import print_function
 # -------------------------- Initial Setup -----------------------------------
 
 import sys
+
 try:
     assert sys.hexversion >= 0x03030000
 except AssertionError as e:
     print("Python version too low. Requires 3.3 or later.")
     raise SystemExit()  # Close.
 
+import argparse
+
 
 class Sensei:
+    def ensureNecessities(self):
+        import os
+
+        assert os.path.exists()
+
     def evaluateStudent(self, verbosity=0):
         import os
 
         from koan_lib.koans import Koans
-        from koan_lib.errors import BuildError
-        from koan_lib.errors import TestError
+        from koan_lib.errors import BuildError, TestError, InstallError
         from koan_lib.builder import Builder
         from koan_lib.logger import Logger
         from koan_lib.wisdoms import Wisdom
 
         pebbleBinLocation = '/usr/local/bin/pebble'
-            # Location of the pebble launcher.
+        # Location of the pebble launcher.
         logger = Logger(verbosity)
         koans = Koans()
         thiskoan = koans.getNextSolvable()
         builder = Builder()
-        koans.unsolveAll()
+        koans.unsolveAll()  # debugging
+
+        koans.addPristineKoans()  # add missing koans to koans dir
 
         logger.log('dbg', 'Running in verbose mode.')
 
         # ------------- Make sure that pebble is installed. ------------------
         try:
-            assert os.path.exists(pebbleBinLocation)  # Pebble installed via homebrew
+            assert os.path.exists(pebbleBinLocation)
+            # Pebble installed via brew
         except AssertionError as e:
-            logger.log('err', "pebble-tool not found! Checked at " + pebbleBinLocation)
+            logger.log('err', "pebble-tool not found! Checked at " +
+                       pebbleBinLocation)
             raise SystemExit()  # Close.
 
         pebblePath = ''
@@ -85,8 +96,10 @@ class Sensei:
         try:
             assert tool_version[0] >= 4  # Version should be above 4.0
         except AssertionError as e:
-            logger.log('err', "Upgrade your pebble-tool! Current version is", tool_version)
-            logger.log('err', "                          Minimum version is", (4, 0, 0))
+            logger.log('err', "Upgrade your pebble-tool! Current version is",
+                       tool_version)
+            logger.log('err', "                          Minimum version is",
+                       (4, 0, 0))
             raise SystemExit()  # Close.
 
         # ----------------------- Actual building. ---------------------------
@@ -101,23 +114,25 @@ class Sensei:
                 thiskoan = koans.getNextSolvable()
                 builder.build(thiskoan)
                 logger.log('pass', '                                 ')
-                logger.log('pass', '  Your Meditation was fruitful.  ')  # Tell the user that
-                logger.log('pass', '                                 ')  # the build passed :D
+                logger.log('pass', '  Your Meditation was fruitful.  ')
+                logger.log('pass', '                                 ')
                 logger.line()
                 koans.setSolved(thiskoan)
                 solved = koans.getSolvedAmount()
-                logger.log('normal', 'Solved: ' + str(solved[0]) + ' of ' + str(solved[1]) +
+                logger.log('normal', 'Solved: ' + str(solved[0]) +
+                                     ' of ' + str(solved[1]) +
                            '. Meditate ' + (koans.getNextSolvable() or
                                             'about something else') + '.')
                 logger.line()
-                logger.log(('wisdom' if koans.getNextSolvable() else 'experience'),
+                logger.log(('wisdom' if koans.getNextSolvable() else
+                            'experience'),
                            (Wisdom().getWisdom()
                             if koans.getNextSolvable() else
                             Wisdom().getExperience()))
                 logger.line()
                 if koans.getNextSolvable() is not None:
                     logger.log('normal', '-=' * 30 + '-')
-        except (BuildError, TestError) as e:
+        except (BuildError, TestError, InstallError) as e:
             if e.__class__ == BuildError:
                 logger.log('fail', '                    ')
                 logger.log('fail', '  Building failed.  ')
@@ -126,13 +141,20 @@ class Sensei:
                 logger.log('fail', '                   ')
                 logger.log('fail', '  Testing failed.  ')
                 logger.log('fail', '                   ')
-            elif e.__class__ == TestError:
-                logger.log('fail', '                     ')
-                logger.log('fail', '  Something failed.  ')
-                logger.log('fail', '                     ')
+            elif e.__class__ == InstallError:
+                logger.log('fail', '                   ')
+                logger.log('fail', '  Install failed.  ')
+                logger.log('fail', '                   ')
+            else:
+                logger.log('fail', '                             ')
+                logger.log('fail', '  Something weird happened.  ')
+                logger.log('fail', '                             ')
+            logger.line()
+            logger.log('err', '    ' + e.message)
             logger.line()
             solved = koans.getSolvedAmount()
-            logger.log('normal', 'Solved: ' + str(solved[0]) + ' of ' + str(solved[1]) +
+            logger.log('normal', 'Solved: ' + str(solved[0]) +
+                                 ' of ' + str(solved[1]) +
                        '. Meditate ' + koans.getNextSolvable() + '.')
             logger.line()
             logger.log('wisdom', Wisdom().getFailure())
@@ -141,19 +163,18 @@ class Sensei:
         if thiskoan is None:
             logger.line()
             logger.log('win', '                              ')
-            logger.log('win', '  There is nothing to solve.  ')  # Tell the user that
-            logger.log('win', '                              ')  # the build passed :D
+            logger.log('win', '  There is nothing to solve.  ')
+            logger.log('win', '                              ')
             logger.line()
             solved = koans.getSolvedAmount()
-            logger.log('normal', 'Solved: ' + str(solved[0]) + ' of ' + str(solved[1]) +
+            logger.log('normal', 'Solved: ' + str(solved[0]) +
+                                 ' of ' + str(solved[1]) +
                        '. Meditate about something else.')
             logger.line()
             logger.log('experience', Wisdom().getExperience())
             logger.line()
 
-import argparse
-
-parser = argparse.ArgumentParser(description='Learn the ways of C and Pebble\'s SDK!')
+parser = argparse.ArgumentParser(description='Learn the ways of Pebble C!')
 parser.add_argument('-v', '--verbose', action='count')
 args = parser.parse_args()
 

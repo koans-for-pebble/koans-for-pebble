@@ -6,3 +6,8 @@ class BuildError(Exception):
 class TestError(Exception):
     def __init__(self, message="Test error."):
         self.message = message
+
+
+class InstallError(Exception):
+    def __init__(self, message="Install error."):
+        self.message = message

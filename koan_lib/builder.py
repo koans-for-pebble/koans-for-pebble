@@ -1,6 +1,6 @@
 import threading
 
-from koan_lib.errors import TestError
+from koan_lib.errors import TestError, BuildError, InstallError
 
 
 class LogReader(threading.Thread):
@@ -12,7 +12,6 @@ class LogReader(threading.Thread):
 
     def run(self):
         # This should be called via threading.
-        # import threading
         import subprocess
         import os
         from tempfile import TemporaryFile
@@ -21,7 +20,12 @@ class LogReader(threading.Thread):
                                '..', 'log_wrapper', 'logs.py')
         self.logCmd = ['python', logFile, self.platform, '3.8.2']
         with TemporaryFile() as tfile:
-            logProcess = subprocess.Popen(self.logCmd, stdout=tfile, stderr=tfile, universal_newlines=True)
+            logProcess = subprocess.Popen(
+                self.logCmd,
+                stdout=tfile,
+                stderr=tfile,
+                universal_newlines=True
+            )
             try:
                 logProcess.wait(timeout=self.timeout)
             except subprocess.TimeoutExpired:
@@ -30,8 +34,8 @@ class LogReader(threading.Thread):
                 logProcess.terminate()
             tfile.seek(0)
             output = tfile.read()
-            tfile.close()
-        self.output = output.decode('utf-8')
+        if output.__class__ is bytes:
+            self.output = output.decode('utf-8')
 
 
 class Tester(threading.Thread):
@@ -42,33 +46,51 @@ class Tester(threading.Thread):
         self.projectLocation = '/tmp/koansforpebble/project'
         self.logLocation = os.path.join(self.projectLocation, '..', 'runlogs')
         self.passed = None
+        self.result = None
         threading.Thread.__init__(self)
 
     def run(self):
         # This should be called via threading.
-        # import threading
         import subprocess
+        import sys
+        import tempfile
         from koan_lib.logger import Logger
         logger = Logger()
-
+        tmpfile = tempfile.TemporaryFile()
         if self.test[:4] == "emu-":
             self.platform = self.test[4:]
 
             installCmd = ['pebble', 'install', '--emulator', self.platform]
             logger.log('info', 'Installing to ' + self.platform + '.')
+            logger.log('wisdom', '┏━━━━━━━━━━━━━━━━━━━━━ Install Output')
             installProcess = subprocess.Popen(installCmd,
+                                              stderr=subprocess.PIPE,
                                               cwd=self.projectLocation)
             try:
                 installProcess.wait(timeout=30)
             except subprocess.TimeoutExpired:
                 logger.log('fail', 'Install Timeout Expired!!!')
-                logger.log('fail', 'If this keeps happening, consider doing this:')
-                logger.log('fail', '• `pebble sdk uninstall 3.8.2`')
-                logger.log('fail', '• Remove "~/Library/Application Support/Pebble SDK/3.8.2"')
-                logger.log('fail', '• `pebble sdk install 3.8.2`')
-                return False
+                logger.log('fail', 'If this keeps happening, consider ' +
+                           'running `pebble wipe`')
+                self.result = InstallError()
             else:
-                logger.log('info', 'Installed to ' + self.platform + ' - Getting logs...')
+                logger.log('wisdom', '┗━━━━━━━━━━━━━━━━━━━━━ Install Output')
+                stderr = installProcess.stderr.read()\
+                                              .decode('utf-8').split('\n')
+                if stderr != ['']:
+                    logger.log('err', '┏━━━━━━━━━━━━━━━━━━━━━ Install Errors')
+                    logger.log('err', '\n'.join(stderr))
+                    logger.log('err', '┗━━━━━━━━━━━━━━━━━━━━━ Install Errors')
+                if 'TimeoutError' in stderr[-1] or\
+                   (len(stderr) > 1 and 'TimeoutError' in stderr[-2]):
+                    self.result = InstallError('Installer timed out')
+                    return
+                logger.log('info', 'Installed to ' + self.platform +
+                                   ' - Getting logs...')
+
+            if installProcess.returncode != 0:
+                self.result = InstallError('Return code nonzero')
+                return
 
             logger.line()
             if installProcess.poll() is None:
@@ -84,18 +106,16 @@ class Tester(threading.Thread):
                 data = line.split()
                 if len(data) < 3:
                     pass  # Don't do anything.
-                # elif data[-2] == 'reg':
-                #     if not data[-1] in self.assertions:
-                #         print(self.assertions, data[-1])
-                #         logger.log('warn', 'Unexpected assertion: ' + (data[-1]))
                 elif data[-2] == 'pass':
                     if data[-1] in self.assertions:
                         self.assertionsPassed.append(data[-1])
                     else:
-                        logger.log('warn', 'Huh, weird. That test was never registered.')
+                        logger.log('warn', 'Huh, weird. ' +
+                                           'That test was never registered.')
 
             if len(self.assertions) == 0:
-                logger.log('err', 'No test results found. To find out what\'s going wrong, try -v?')
+                logger.log('err', 'No test results found. ' +
+                                  'To find out what\'s going wrong, try -v?')
                 logger.line()
                 self.passed = False
             else:
@@ -120,9 +140,9 @@ class Tester(threading.Thread):
 class Builder:
     def __init__(self):
         self.tempLocation = '/tmp/koansforpebble/'
-            # Location of temporary files.
+        # Location of temporary files.
         self.projectLocation = '/tmp/koansforpebble/project'
-            # Location of the temp project
+        # Location of the temp project
         pass
 
     def build(self, koanName):
@@ -131,7 +151,6 @@ class Builder:
         import shutil
         import re
         from koan_lib.koans import Koans
-        from koan_lib.errors import BuildError
         from koan_lib.logger import Logger
         koans = Koans()
         logger = Logger()
@@ -145,9 +164,6 @@ class Builder:
 
         assert os.path.isdir(koans.getKoanDir(koanName))
 
-        # tempout = subprocess.check_output(['pebble', 'new-project', projectLocation])
-        # logger.log('dbg', (tempout.decode('utf-8')))
-
         shutil.copytree(koans.getKoanDir(koanName), self.projectLocation)
 
         logger.line()
@@ -156,12 +172,13 @@ class Builder:
 
         # Build the project (remember, we moved to the project's directory)
         temp = subprocess.Popen(['pebble', 'build'], stdout=subprocess.PIPE,
-                                stderr=subprocess.PIPE, cwd=self.projectLocation)
-        tempin, tempout = temp.communicate()
+                                stderr=subprocess.PIPE,
+                                cwd=self.projectLocation)
+        tempin, tempout = temp.communicate(timeout=30)
         tempout = tempout.decode('utf-8')
 
         logger.log('dbg', "-" * 30 + "  Dumping raw build info  " + "-" * 30)
-        logger.log('dbg', tempout)  # Dump the build log (if we're running verbosely.)
+        logger.log('dbg', tempout)  # Dump the build log (if running verbosely)
 
         platform = ''
         platforms = {}
@@ -185,9 +202,10 @@ class Builder:
                     logger.log('warn', 'Build warnings when building for ' +
                                platform.upper())
                 for problem in platforms[platform]['problems']:
-                    logger.log(('err' if 'error' in problem else 'warn'), '-----> ' + problem)
+                    logger.log(('err' if 'error' in problem else 'warn'),
+                               '-----> ' + problem)
 
-        if temp.returncode != 0:  # If building didn't return 0 (thus, it failed)
+        if temp.returncode != 0:  # If building didn't return 0 (failure)
             logger.line()
             raise BuildError()  # Close.
 
@@ -196,7 +214,7 @@ class Builder:
         testsPass = True
 
         tests = koans.getTests(koanName)
-            # Make sure there's no duplicate tests because then things would break.
+        # Make sure there's no duplicate tests because then things would break.
         if len(tests) > 0:
             logger.line()
             for test in tests:
@@ -205,6 +223,8 @@ class Builder:
                 testThread = Tester(test)
                 testThread.start()
                 testThread.join()
+                if testThread.result is not None:
+                    raise testThread.result
                 if not testThread.passed:
                     testsPass = False
         if not testsPass:

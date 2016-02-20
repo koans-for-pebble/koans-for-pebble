@@ -18,7 +18,7 @@ class Wisdom:
             'Go squash the bug.',
         ]
         self.experiences = [
-            'When the apprentice beats the master, he himself becomes a master.',
+            'When the apprentice beats the master, he becomes the master.',
             'Even the master has a long path ahead of himself.',
         ]
 
