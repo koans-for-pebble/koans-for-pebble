@@ -1,1 +1,3 @@
 koans
+*.pyc
+__pycache__
